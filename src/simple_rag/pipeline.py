@@ -17,6 +17,7 @@ from simple_rag.chunking.splitter import chunk_text, count_tokens
 from simple_rag.embeddings.embedder import embed_texts
 from simple_rag.ingestion.cleaner import clean_document
 from simple_rag.ingestion.loader import load_pdf
+from simple_rag.prompts.context import Context, build_context
 from simple_rag.query.ask import Question, iter_questions
 from simple_rag.query.embed_question import embed_question
 from simple_rag.vectorstore.pg_store import PgVectorStore, SearchResult
@@ -61,6 +62,11 @@ def retrieve(query: str, *, top_k: int = 3) -> list[SearchResult]:
         return store.search(list(query_embedding.vector), top_k=top_k)
 
 
+def context_for(question: str, *, top_k: int = 3, max_tokens: int = 2000) -> Context:
+    """Retrieve chunks for a question and assemble the LLM context block."""
+    return build_context(retrieve(question, top_k=top_k), max_tokens=max_tokens)
+
+
 def chat(top_k: int = 3) -> None:
     """Interactive question loop - shows retrieved chunks for each question."""
     print("RAG query mode. Type 'quit', 'exit', or 'q' to stop.")
@@ -93,6 +99,15 @@ def main() -> None:
     chat_parser = subparsers.add_parser("chat", help="ask questions interactively")
     chat_parser.add_argument("--top-k", type=int, default=3, help="how many chunks")
 
+    context_parser = subparsers.add_parser(
+        "context", help="build the LLM context for a question"
+    )
+    context_parser.add_argument("question", help="the question to build context for")
+    context_parser.add_argument("--top-k", type=int, default=3, help="how many chunks")
+    context_parser.add_argument(
+        "--max-tokens", type=int, default=2000, help="maximum context tokens"
+    )
+
     args = parser.parse_args()
 
     if args.command == "index":
@@ -112,6 +127,13 @@ def main() -> None:
             print("-" * 60)
     elif args.command == "chat":
         chat(top_k=args.top_k)
+    elif args.command == "context":
+        built = context_for(
+            args.question, top_k=args.top_k, max_tokens=args.max_tokens
+        )
+        print(f"chunks used: {built.chunk_count} | tokens used: {built.token_count}")
+        print("-" * 60)
+        print(built.text)
 
 
 if __name__ == "__main__":

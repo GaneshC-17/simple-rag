@@ -67,10 +67,13 @@ uv run python main.py ask "What is heredity?" --top-k 3
 
 # Ask questions interactively (type 'quit' to exit)
 uv run python main.py chat --top-k 3
+
+# Build the context block that will be sent to the LLM
+uv run python main.py context "What is heredity?" --top-k 3 --max-tokens 2000
 ```
 
-`ask` / `chat` currently return retrieved chunks; converting the question to an
-embedding and generating an LLM answer (via freellmapi) are the next stages.
+`ask` / `chat` return retrieved chunks; `context` assembles them into a labeled
+block within a token budget. Generating the LLM answer via freellmapi is next.
 
 ## Structure
 
@@ -80,7 +83,7 @@ embedding and generating an LLM answer (via freellmapi) are the next stages.
 - `src/simple_rag/vectorstore/` — PostgreSQL + pgvector store (embedded-postgres)
 - `src/simple_rag/query/` — user question input + question-to-vector conversion
 - `src/simple_rag/generation/` — freellmapi-backed LLM answers from context
-- `src/simple_rag/prompts/` — prompt templates
+- `src/simple_rag/prompts/` — prompt templates and LLM context building
 - `src/simple_rag/config.py` — settings from `.env`
 - `src/simple_rag/pipeline.py` — ties stages together
 
@@ -95,4 +98,5 @@ embedding and generating an LLM answer (via freellmapi) are the next stages.
 - [x] pipeline
 - [x] user question
 - [x] question embedding
+- [x] build context
 - [ ] generation
