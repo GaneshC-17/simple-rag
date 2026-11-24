@@ -10,6 +10,12 @@ Every setting the app needs is read once, in one place. Other modules import
 HOW TO CHANGE A VALUE
 ---------------------
 Edit `.env` (never hardcode a key or a model name in Python code).
+
+ARCHITECTURE NOTE
+-----------------
+Generation settings (LLM_*) are for freellmapi, a local router that forwards
+to free cloud LLMs. Embedding settings (EMBEDDING_*) are for a LOCAL
+sentence-transformers model - no API key and no network call is involved.
 """
 
 from __future__ import annotations
@@ -43,12 +49,12 @@ def _required(name: str) -> str:
 class Settings:
     """A typed, read-only snapshot of the project configuration."""
 
-    # freellmapi connection
+    # Generation only: freellmapi (local router -> free cloud LLM)
     llm_base_url: str
     llm_api_key: str
     llm_model: str
 
-    # Embeddings: one family + dimension per vector store
+    # Local embeddings: sentence-transformers, no API key / no network
     embedding_model: str
     embedding_dim: int
 
@@ -79,8 +85,8 @@ def get_settings() -> Settings:
 if __name__ == "__main__":
     # Quick self-check: `uv run python -m simple_rag.config`
     s = get_settings()
-    print(f"endpoint   : {s.llm_base_url}")
-    print(f"api key    : {s.llm_api_key[:12]}... (masked)")
-    print(f"chat model : {s.llm_model}")
-    print(f"embedding  : {s.embedding_model} ({s.embedding_dim} dims)")
-    print(f"raw data   : {s.raw_data_dir}")
+    print(f"llm endpoint : {s.llm_base_url}")
+    print(f"llm key      : {s.llm_api_key[:12]}... (masked)")
+    print(f"chat model   : {s.llm_model}")
+    print(f"embed model  : {s.embedding_model} ({s.embedding_dim} dims, local)")
+    print(f"raw data     : {s.raw_data_dir}")
