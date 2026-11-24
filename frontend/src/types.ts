@@ -21,3 +21,10 @@ export interface HealthResponse {
   status: string
   chunks: number
 }
+
+export interface ChatMessage {
+  id: number
+  role: 'user' | 'assistant'
+  answer: string
+  sources?: Source[]
+}
