@@ -20,7 +20,7 @@ A small, step-by-step learning project for Retrieval-Augmented Generation (RAG).
 
 ## Progress
 - [x] config
-- [ ] ingestion
+- [x] ingestion
 - [ ] chunking
 - [ ] embeddings
 - [ ] vectorstore
