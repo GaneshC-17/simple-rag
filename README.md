@@ -69,6 +69,6 @@ curl.exe -H "Authorization: Bearer freellmapi-YOUR_KEY" http://127.0.0.1:31415/v
 - [x] ingestion
 - [x] text cleaning
 - [x] chunking
-- [ ] embeddings
+- [x] embeddings
 - [ ] vectorstore
 - [ ] generation
