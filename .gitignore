@@ -16,3 +16,5 @@ data/processed/
 
 # Jupyter checkpoints
 .ipynb_checkpoints/
+# Raw PDFs
+data/raw/
