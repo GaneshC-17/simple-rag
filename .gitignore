@@ -17,5 +17,12 @@ data/pgdata/
 
 # Jupyter checkpoints
 .ipynb_checkpoints/
+
+# Python test cache
+.pytest_cache/
+
+# Node / frontend build artifacts
+node_modules/
+frontend/dist/
 # Raw PDFs
 data/raw/
