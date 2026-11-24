@@ -1,6 +1,8 @@
 from fastapi.testclient import TestClient
 
 from backend.app import app
+from simple_rag.prompts.context import Context
+from simple_rag.vectorstore.pg_store import SearchResult
 
 
 def test_health_reports_status_and_chunk_count(monkeypatch):
@@ -8,3 +10,64 @@ def test_health_reports_status_and_chunk_count(monkeypatch):
     response = TestClient(app).get("/api/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "chunks": 7}
+
+
+def test_ask_returns_answer_and_sources(monkeypatch):
+    from simple_rag.vectorstore.pg_store import SearchResult
+    from simple_rag.prompts.context import Context
+
+    result = SearchResult("The rules of heredity...", "notes.pdf", 3, 0.56)
+    monkeypatch.setattr("backend.app.retrieve", lambda q, top_k: [result])
+    monkeypatch.setattr(
+        "backend.app.build_context",
+        lambda r, max_tokens: Context("The rules of heredity...", 1, 10),
+    )
+    monkeypatch.setattr(
+        "backend.app.generate_answer",
+        lambda q, c: "The rules of heredity determine inheritance.",
+    )
+
+    response = TestClient(app).post("/api/ask", json={"question": "What is heredity?"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["answer"] == "The rules of heredity determine inheritance."
+    assert body["sources"][0] == {
+        "content": "The rules of heredity...",
+        "source": "notes.pdf",
+        "chunk_index": 3,
+        "similarity": 0.56,
+    }
+
+
+def test_ask_rejects_empty_question():
+    assert TestClient(app).post("/api/ask", json={"question": "   "}).status_code == 400
+
+
+def test_ask_returns_502_when_llm_fails(monkeypatch):
+    def boom(q, c):
+        raise RuntimeError("Cannot reach freellmapi")
+
+    monkeypatch.setattr("backend.app.retrieve", lambda q, top_k: [])
+    monkeypatch.setattr(
+        "backend.app.build_context", lambda r, max_tokens: Context("", 0, 0)
+    )
+    monkeypatch.setattr("backend.app.generate_answer", boom)
+
+    response = TestClient(app).post("/api/ask", json={"question": "anything"})
+    assert response.status_code == 502
+    assert "freellmapi" in response.json()["detail"]
+
+
+def test_ask_with_no_documents_returns_grounded_answer(monkeypatch):
+    monkeypatch.setattr("backend.app.retrieve", lambda q, top_k: [])
+    monkeypatch.setattr(
+        "backend.app.build_context", lambda r, max_tokens: Context("", 0, 0)
+    )
+    monkeypatch.setattr(
+        "backend.app.generate_answer",
+        lambda q, c: "I don't know based on the provided documents.",
+    )
+
+    body = TestClient(app).post("/api/ask", json={"question": "anything"}).json()
+    assert body["sources"] == []
+    assert "I don't know" in body["answer"]

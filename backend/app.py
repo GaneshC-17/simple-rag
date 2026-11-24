@@ -2,11 +2,21 @@
 
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 
+from simple_rag.generation.generator import generate_answer
+from simple_rag.pipeline import retrieve
+from simple_rag.prompts.context import build_context
 from simple_rag.vectorstore.pg_store import PgVectorStore
 
 app = FastAPI(title="simple-rag API")
+
+
+class AskRequest(BaseModel):
+    question: str
+    top_k: int = 3
+    max_tokens: int = 2000
 
 
 def get_chunk_count() -> int:
@@ -22,3 +32,29 @@ def get_chunk_count() -> int:
 def health() -> dict[str, str | int]:
     """Cheap local check - never fails just because the DB is uninitialized."""
     return {"status": "ok", "chunks": get_chunk_count()}
+
+
+@app.post("/api/ask")
+def ask(request: AskRequest) -> dict:
+    """Answer a question and return the chunks the answer is based on."""
+    if not request.question.strip():
+        raise HTTPException(status_code=400, detail="Question must not be empty")
+
+    results = retrieve(request.question, top_k=request.top_k)
+    context = build_context(results, max_tokens=request.max_tokens)
+
+    try:
+        answer = generate_answer(request.question, context)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    sources = [
+        {
+            "content": result.content,
+            "source": result.source,
+            "chunk_index": result.chunk_index,
+            "similarity": result.similarity,
+        }
+        for result in results
+    ]
+    return {"answer": answer, "sources": sources}
