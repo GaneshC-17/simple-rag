@@ -3,6 +3,18 @@
 A small, step-by-step learning project for Retrieval-Augmented Generation (RAG),
 built toward a production agentic RAG system.
 
+## Web app (recommended)
+
+Double-click **`start.bat`**. It starts the API and the UI in two windows, then
+opens `http://localhost:5173` in your browser. In the app: click **Upload PDF**,
+wait for the "Indexed …" message, then type a question and press Enter. Answers
+show expandable source chips from the PDF.
+
+- API: `http://127.0.0.1:8000`
+- UI: `http://localhost:5173`
+
+The CLI commands below still work if you prefer the terminal.
+
 ## Architecture
 
 This project deliberately uses **two different approaches** for embeddings and
