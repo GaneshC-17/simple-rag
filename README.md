@@ -21,6 +21,7 @@ A small, step-by-step learning project for Retrieval-Augmented Generation (RAG).
 ## Progress
 - [x] config
 - [x] ingestion
+- [x] text cleaning
 - [ ] chunking
 - [ ] embeddings
 - [ ] vectorstore
