@@ -15,6 +15,7 @@ from dataclasses import dataclass
 
 from simple_rag.chunking.splitter import chunk_text, count_tokens
 from simple_rag.embeddings.embedder import embed_texts
+from simple_rag.generation.generator import generate_answer
 from simple_rag.ingestion.cleaner import clean_document
 from simple_rag.ingestion.loader import load_pdf
 from simple_rag.prompts.context import Context, build_context
@@ -67,6 +68,17 @@ def context_for(question: str, *, top_k: int = 3, max_tokens: int = 2000) -> Con
     return build_context(retrieve(question, top_k=top_k), max_tokens=max_tokens)
 
 
+def answer(
+    question: str,
+    *,
+    top_k: int = 3,
+    max_tokens: int = 2000,
+) -> str:
+    """Full RAG loop: retrieve -> build context -> ask the LLM."""
+    built = context_for(question, top_k=top_k, max_tokens=max_tokens)
+    return generate_answer(question, built)
+
+
 def chat(top_k: int = 3) -> None:
     """Interactive question loop - shows retrieved chunks for each question."""
     print("RAG query mode. Type 'quit', 'exit', or 'q' to stop.")
@@ -108,6 +120,13 @@ def main() -> None:
         "--max-tokens", type=int, default=2000, help="maximum context tokens"
     )
 
+    answer_parser = subparsers.add_parser("answer", help="ask and get a grounded answer")
+    answer_parser.add_argument("question", help="the question to answer")
+    answer_parser.add_argument("--top-k", type=int, default=3, help="how many chunks")
+    answer_parser.add_argument(
+        "--max-tokens", type=int, default=2000, help="maximum context tokens"
+    )
+
     args = parser.parse_args()
 
     if args.command == "index":
@@ -134,6 +153,8 @@ def main() -> None:
         print(f"chunks used: {built.chunk_count} | tokens used: {built.token_count}")
         print("-" * 60)
         print(built.text)
+    elif args.command == "answer":
+        print(answer(args.question, top_k=args.top_k, max_tokens=args.max_tokens))
 
 
 if __name__ == "__main__":
