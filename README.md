@@ -18,7 +18,7 @@ generation:
   The weights are downloaded once and cached; after that it works offline.
 - **Generation uses freellmapi.** freellmapi is a router running on this laptop. It
   holds the free-tier provider keys and exposes one OpenAI-compatible endpoint at
-  `http://localhost:3001/v1`. Only the `LLM_*` settings apply to it.
+  `http://127.0.0.1:31415/v1` (desktop app port). Only the `LLM_*` settings apply to it.
 - **Why split them:** retrieval quality should not depend on which LLM is answering.
   Swapping the chat model later never forces a vector-store rebuild — but changing
   the embedding model does, which is why it is pinned in `.env`.
@@ -32,6 +32,25 @@ generation:
 4. Run `uv run python -m simple_rag.config` to verify settings.
 
 > The embedding model weights (~2.2 GB) are downloaded on first use and then cached.
+
+### Check freellmapi manually
+
+```powershell
+# 1. Confirm the desktop app is listening on port 31415
+Get-NetTCPConnection -State Listen | Where-Object LocalPort -eq 31415
+
+# 2. See which process owns it
+Get-Process FreeLLMAPI | Select-Object Id, Path
+
+# 3. Is the API reachable? 200 = yes, 401 = reachable but needs a key
+curl.exe -s -o NUL -w "%{http_code}`n" http://127.0.0.1:31415/v1/docs
+
+# 4. Open the interactive API viewer in your browser
+Start-Process "http://127.0.0.1:31415/v1/docs"
+
+# 5. List available models (paste your real unified key)
+curl.exe -H "Authorization: Bearer freellmapi-YOUR_KEY" http://127.0.0.1:31415/v1/models
+```
 
 ## Structure
 
