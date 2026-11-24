@@ -17,6 +17,7 @@ from simple_rag.chunking.splitter import chunk_text, count_tokens
 from simple_rag.embeddings.embedder import embed_query, embed_texts
 from simple_rag.ingestion.cleaner import clean_document
 from simple_rag.ingestion.loader import load_pdf
+from simple_rag.query.ask import iter_questions
 from simple_rag.vectorstore.pg_store import PgVectorStore, SearchResult
 
 
@@ -59,8 +60,25 @@ def retrieve(query: str, *, top_k: int = 3) -> list[SearchResult]:
         return store.search(query_vector, top_k=top_k)
 
 
+def chat(top_k: int = 3) -> None:
+    """Interactive question loop - shows retrieved chunks for each question."""
+    print("RAG query mode. Type 'quit', 'exit', or 'q' to stop.")
+    for question in iter_questions():
+        results = retrieve(question.text, top_k=top_k)
+        if not results:
+            print("(no chunks found - index a PDF first)")
+            continue
+        for number, result in enumerate(results, start=1):
+            print(
+                f"[{number}] similarity={result.similarity:.4f} "
+                f"source={result.source} chunk={result.chunk_index}"
+            )
+            print(result.content)
+            print("-" * 60)
+
+
 def main() -> None:
-    """CLI: `uv run python -m simple_rag.pipeline {index,ask}`."""
+    """CLI: `uv run python -m simple_rag.pipeline {index,ask,chat}`."""
     parser = argparse.ArgumentParser(description="Simple RAG pipeline")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -70,6 +88,9 @@ def main() -> None:
     ask_parser = subparsers.add_parser("ask", help="retrieve chunks for a question")
     ask_parser.add_argument("question", help="the question to search for")
     ask_parser.add_argument("--top-k", type=int, default=3, help="how many chunks")
+
+    chat_parser = subparsers.add_parser("chat", help="ask questions interactively")
+    chat_parser.add_argument("--top-k", type=int, default=3, help="how many chunks")
 
     args = parser.parse_args()
 
@@ -88,6 +109,8 @@ def main() -> None:
             )
             print(result.content)
             print("-" * 60)
+    elif args.command == "chat":
+        chat(top_k=args.top_k)
 
 
 if __name__ == "__main__":

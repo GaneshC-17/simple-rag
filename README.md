@@ -64,9 +64,13 @@ uv run python main.py index "data\raw\your-file.pdf"
 
 # Retrieve relevant chunks for a question
 uv run python main.py ask "What is heredity?" --top-k 3
+
+# Ask questions interactively (type 'quit' to exit)
+uv run python main.py chat --top-k 3
 ```
 
-`ask` currently returns retrieved chunks; the LLM answer (via freellmapi) is the next stage.
+`ask` / `chat` currently return retrieved chunks; converting the question to an
+embedding and generating an LLM answer (via freellmapi) are the next stages.
 
 ## Structure
 
@@ -74,6 +78,7 @@ uv run python main.py ask "What is heredity?" --top-k 3
 - `src/simple_rag/chunking/` — split clean text into token-sized chunks
 - `src/simple_rag/embeddings/` — local `sentence-transformers` model (no API)
 - `src/simple_rag/vectorstore/` — PostgreSQL + pgvector store (embedded-postgres)
+- `src/simple_rag/query/` — user question input (interactive loop)
 - `src/simple_rag/generation/` — freellmapi-backed LLM answers from context
 - `src/simple_rag/prompts/` — prompt templates
 - `src/simple_rag/config.py` — settings from `.env`
@@ -88,4 +93,6 @@ uv run python main.py ask "What is heredity?" --top-k 3
 - [x] embeddings
 - [x] vectorstore
 - [x] pipeline
+- [x] user question
+- [ ] question embedding
 - [ ] generation
