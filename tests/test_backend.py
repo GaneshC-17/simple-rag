@@ -106,3 +106,11 @@ def test_index_rejects_non_pdf():
     )
     assert response.status_code == 400
     assert "pdf" in response.json()["detail"].lower()
+
+
+def test_index_rejects_file_without_pdf_magic_bytes():
+    response = TestClient(app).post(
+        "/api/index", files={"file": ("fake.pdf", b"hello", "application/pdf")}
+    )
+    assert response.status_code == 400
+    assert "look like a PDF" in response.json()["detail"]

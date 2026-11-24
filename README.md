@@ -3,6 +3,19 @@
 A small, step-by-step learning project for Retrieval-Augmented Generation (RAG),
 built toward a production agentic RAG system.
 
+## One-time setup
+
+Before the first launch, from the project folder:
+
+```powershell
+uv sync
+Copy-Item .env.example .env
+```
+
+Open `.env` and replace `freellmapi-your-unified-key` with your real key. Node.js
+22+ must be installed. `start.bat` installs the frontend dependencies
+automatically on its first run.
+
 ## Web app (recommended)
 
 Double-click **`start.bat`**. It starts the API and the UI in two windows, then

@@ -23,8 +23,8 @@ export interface HealthResponse {
 }
 
 export interface ChatMessage {
-  id: number
+  id: string
   role: 'user' | 'assistant'
-  answer: string
+  text: string
   sources?: Source[]
 }

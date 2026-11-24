@@ -2,8 +2,14 @@ import type { AskResponse, HealthResponse, IndexResponse } from './types'
 
 async function check<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    const body = await response.json().catch(() => ({}))
-    throw new Error(body.detail ?? `Request failed (${response.status})`)
+    const body: unknown = await response.json().catch(() => null)
+    const detail =
+      typeof body === 'object' && body !== null && 'detail' in body
+        ? (body as { detail: unknown }).detail
+        : null
+    throw new Error(
+      typeof detail === 'string' ? detail : `Request failed (${response.status})`,
+    )
   }
   return response.json() as Promise<T>
 }

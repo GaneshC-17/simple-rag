@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import type { ChatMessage } from '../types'
 import SourceChip from './SourceChip'
 
@@ -7,16 +8,19 @@ interface MessageListProps {
   onSuggestion: (question: string) => void
 }
 
-const SUGGESTIONS = [
-  'What is heredity?',
-  'What determines inheritance?',
-]
+const SUGGESTIONS = ['What is heredity?', 'What determines inheritance?']
 
 export default function MessageList({
   messages,
   pending,
   onSuggestion,
 }: MessageListProps) {
+  const bottomRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, pending])
+
   if (messages.length === 0 && !pending) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
@@ -47,19 +51,22 @@ export default function MessageList({
           message.role === 'user' ? (
             <div key={message.id} className="flex justify-end">
               <div className="max-w-[80%] rounded-2xl bg-gray-100 px-4 py-3 text-sm text-gray-900">
-                {message.answer}
+                {message.text}
               </div>
             </div>
           ) : (
             <div key={message.id} className="text-sm leading-7 text-gray-800">
-              <p className="mb-3 whitespace-pre-wrap">{message.answer}</p>
+              <p className="mb-3 whitespace-pre-wrap">{message.text}</p>
               {message.sources && message.sources.length > 0 && (
                 <div>
                   <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-400">
                     Sources
                   </p>
                   {message.sources.map((source) => (
-                    <SourceChip key={source.chunk_index} source={source} />
+                    <SourceChip
+                      key={`${source.source}-${source.chunk_index}`}
+                      source={source}
+                    />
                   ))}
                 </div>
               )}
@@ -71,6 +78,7 @@ export default function MessageList({
             <span className="animate-pulse">●</span> Thinking…
           </div>
         )}
+        <div ref={bottomRef} />
       </div>
     </div>
   )

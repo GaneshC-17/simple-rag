@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from simple_rag.config import get_settings
 from simple_rag.generation.generator import generate_answer
@@ -16,12 +17,37 @@ from simple_rag.vectorstore.pg_store import PgVectorStore
 app = FastAPI(title="simple-rag API")
 
 RAW_DIR = get_settings().raw_data_dir
+MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 
 
 class AskRequest(BaseModel):
     question: str
-    top_k: int = 3
-    max_tokens: int = 2000
+    top_k: int = Field(default=3, ge=1, le=20)
+    max_tokens: int = Field(default=2000, ge=1, le=8000)
+
+
+class HealthResponse(BaseModel):
+    status: str
+    chunks: int
+
+
+class SourceOut(BaseModel):
+    content: str
+    source: str
+    chunk_index: int
+    similarity: float
+
+
+class AskResponse(BaseModel):
+    answer: str
+    sources: list[SourceOut]
+
+
+class IndexResponse(BaseModel):
+    source: str
+    pages: int
+    chunks: int
+    tokens: int
 
 
 def get_chunk_count() -> int:
@@ -34,56 +60,71 @@ def get_chunk_count() -> int:
 
 
 @app.get("/api/health")
-def health() -> dict[str, str | int]:
+def health() -> HealthResponse:
     """Cheap local check - never fails just because the DB is uninitialized."""
-    return {"status": "ok", "chunks": get_chunk_count()}
+    return HealthResponse(status="ok", chunks=get_chunk_count())
 
 
 @app.post("/api/ask")
-def ask(request: AskRequest) -> dict:
+def ask(request: AskRequest) -> AskResponse:
     """Answer a question and return the chunks the answer is based on."""
     if not request.question.strip():
         raise HTTPException(status_code=400, detail="Question must not be empty")
 
-    results = retrieve(request.question, top_k=request.top_k)
-    context = build_context(results, max_tokens=request.max_tokens)
-
     try:
+        results = retrieve(request.question, top_k=request.top_k)
+        context = build_context(results, max_tokens=request.max_tokens)
         answer = generate_answer(request.question, context)
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Pipeline failed: {type(exc).__name__}"
+        ) from exc
 
-    sources = [
-        {
-            "content": result.content,
-            "source": result.source,
-            "chunk_index": result.chunk_index,
-            "similarity": result.similarity,
-        }
-        for result in results
-    ]
-    return {"answer": answer, "sources": sources}
+    return AskResponse(
+        answer=answer,
+        sources=[
+            SourceOut(
+                content=result.content,
+                source=result.source,
+                chunk_index=result.chunk_index,
+                similarity=result.similarity,
+            )
+            for result in results
+        ],
+    )
 
 
 @app.post("/api/index")
-def index(file: UploadFile = File(...)) -> dict:
+def index(file: UploadFile = File(...)) -> IndexResponse:
     """Save an uploaded PDF and index it into the vector store."""
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are supported")
 
-    safe_name = Path(file.filename).name
+    data = file.file.read()
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=400, detail="File is too large (max 20 MB)")
+    if not data.startswith(b"%PDF"):
+        raise HTTPException(status_code=400, detail="File does not look like a PDF")
+
+    # Basename stops path traversal; reserved characters are removed for Windows.
+    safe_name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", Path(file.filename).name)
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     target = RAW_DIR / safe_name
-    target.write_bytes(file.file.read())
 
     try:
+        target.write_bytes(data)
         stats = index_pdf(str(target))
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        target.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=500, detail=f"Indexing failed: {type(exc).__name__}"
+        ) from exc
 
-    return {
-        "source": stats.source,
-        "pages": stats.pages,
-        "chunks": stats.chunks,
-        "tokens": stats.tokens,
-    }
+    return IndexResponse(
+        source=stats.source,
+        pages=stats.pages,
+        chunks=stats.chunks,
+        tokens=stats.tokens,
+    )

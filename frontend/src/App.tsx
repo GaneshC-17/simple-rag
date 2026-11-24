@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { askQuestion, getHealth, indexPdf } from './api'
 import Composer from './components/Composer'
 import MessageList from './components/MessageList'
+import MobileBar from './components/MobileBar'
 import Sidebar from './components/Sidebar'
 import type { ChatMessage } from './types'
 
@@ -16,12 +17,27 @@ export default function App() {
   const [chunks, setChunks] = useState(0)
 
   useEffect(() => {
-    getHealth()
-      .then((health) => {
+    let cancelled = false
+    // The launcher opens the browser before Postgres may be ready - retry a few times.
+    async function checkHealth(attempt: number) {
+      try {
+        const health = await getHealth()
+        if (cancelled) return
         setOnline(health.status === 'ok')
         setChunks(health.chunks)
-      })
-      .catch(() => setOnline(false))
+      } catch {
+        if (cancelled) return
+        if (attempt < 3) {
+          window.setTimeout(() => void checkHealth(attempt + 1), 1500)
+        } else {
+          setOnline(false)
+        }
+      }
+    }
+    void checkHealth(1)
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   async function sendQuestion(question: string) {
@@ -32,7 +48,7 @@ export default function App() {
     setError(null)
     setMessages((current) => [
       ...current,
-      { id: Date.now(), role: 'user', answer: text },
+      { id: crypto.randomUUID(), role: 'user', text },
     ])
     setPending(true)
 
@@ -41,9 +57,9 @@ export default function App() {
       setMessages((current) => [
         ...current,
         {
-          id: Date.now() + 1,
+          id: crypto.randomUUID(),
           role: 'assistant',
-          answer: result.answer,
+          text: result.answer,
           sources: result.sources,
         },
       ])
@@ -63,7 +79,7 @@ export default function App() {
       setNotice(`Indexed ${result.source}: ${result.chunks} chunks`)
       const health = await getHealth()
       setChunks(health.chunks)
-      setOnline(true)
+      setOnline(health.status === 'ok')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed')
     } finally {
@@ -78,16 +94,19 @@ export default function App() {
     setNotice(null)
   }
 
+  const barProps = {
+    onNewChat: newChat,
+    onUpload: handleUpload,
+    uploading,
+    online,
+    chunks,
+  }
+
   return (
-    <div className="flex h-screen bg-white text-gray-900">
-      <Sidebar
-        onNewChat={newChat}
-        onUpload={handleUpload}
-        uploading={uploading}
-        online={online}
-        chunks={chunks}
-      />
-      <main className="flex min-w-0 flex-1 flex-col">
+    <div className="flex h-screen flex-col bg-white text-gray-900 md:flex-row">
+      <Sidebar {...barProps} />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <MobileBar {...barProps} />
         {error && (
           <div
             role="alert"
@@ -112,7 +131,7 @@ export default function App() {
           onSend={() => sendQuestion(input)}
           disabled={pending}
         />
-      </main>
+      </div>
     </div>
   )
 }
