@@ -78,7 +78,7 @@ embedding and generating an LLM answer (via freellmapi) are the next stages.
 - `src/simple_rag/chunking/` — split clean text into token-sized chunks
 - `src/simple_rag/embeddings/` — local `sentence-transformers` model (no API)
 - `src/simple_rag/vectorstore/` — PostgreSQL + pgvector store (embedded-postgres)
-- `src/simple_rag/query/` — user question input (interactive loop)
+- `src/simple_rag/query/` — user question input + question-to-vector conversion
 - `src/simple_rag/generation/` — freellmapi-backed LLM answers from context
 - `src/simple_rag/prompts/` — prompt templates
 - `src/simple_rag/config.py` — settings from `.env`
@@ -94,5 +94,5 @@ embedding and generating an LLM answer (via freellmapi) are the next stages.
 - [x] vectorstore
 - [x] pipeline
 - [x] user question
-- [ ] question embedding
+- [x] question embedding
 - [ ] generation

@@ -14,10 +14,11 @@ import argparse
 from dataclasses import dataclass
 
 from simple_rag.chunking.splitter import chunk_text, count_tokens
-from simple_rag.embeddings.embedder import embed_query, embed_texts
+from simple_rag.embeddings.embedder import embed_texts
 from simple_rag.ingestion.cleaner import clean_document
 from simple_rag.ingestion.loader import load_pdf
-from simple_rag.query.ask import iter_questions
+from simple_rag.query.ask import Question, iter_questions
+from simple_rag.query.embed_question import embed_question
 from simple_rag.vectorstore.pg_store import PgVectorStore, SearchResult
 
 
@@ -55,9 +56,9 @@ def index_pdf(
 
 def retrieve(query: str, *, top_k: int = 3) -> list[SearchResult]:
     """Embed a question and return the most similar stored chunks."""
-    query_vector = embed_query(query)
+    query_embedding = embed_question(Question(query))
     with PgVectorStore() as store:
-        return store.search(query_vector, top_k=top_k)
+        return store.search(list(query_embedding.vector), top_k=top_k)
 
 
 def chat(top_k: int = 3) -> None:
