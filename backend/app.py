@@ -2,15 +2,20 @@
 
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException
+from pathlib import Path
+
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
+from simple_rag.config import get_settings
 from simple_rag.generation.generator import generate_answer
-from simple_rag.pipeline import retrieve
+from simple_rag.pipeline import index_pdf, retrieve
 from simple_rag.prompts.context import build_context
 from simple_rag.vectorstore.pg_store import PgVectorStore
 
 app = FastAPI(title="simple-rag API")
+
+RAW_DIR = get_settings().raw_data_dir
 
 
 class AskRequest(BaseModel):
@@ -58,3 +63,27 @@ def ask(request: AskRequest) -> dict:
         for result in results
     ]
     return {"answer": answer, "sources": sources}
+
+
+@app.post("/api/index")
+def index(file: UploadFile = File(...)) -> dict:
+    """Save an uploaded PDF and index it into the vector store."""
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported")
+
+    safe_name = Path(file.filename).name
+    RAW_DIR.mkdir(parents=True, exist_ok=True)
+    target = RAW_DIR / safe_name
+    target.write_bytes(file.file.read())
+
+    try:
+        stats = index_pdf(str(target))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return {
+        "source": stats.source,
+        "pages": stats.pages,
+        "chunks": stats.chunks,
+        "tokens": stats.tokens,
+    }

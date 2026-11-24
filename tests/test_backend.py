@@ -71,3 +71,38 @@ def test_ask_with_no_documents_returns_grounded_answer(monkeypatch):
     body = TestClient(app).post("/api/ask", json={"question": "anything"}).json()
     assert body["sources"] == []
     assert "I don't know" in body["answer"]
+
+
+def test_index_accepts_pdf_and_saves_sanitized_name(monkeypatch, tmp_path):
+    from simple_rag.pipeline import IndexStats
+
+    saved = {}
+    monkeypatch.setattr("backend.app.RAW_DIR", tmp_path)
+
+    def fake_index(path):
+        saved["path"] = path
+        return IndexStats("my doc.pdf", 2, 3, 100)
+
+    monkeypatch.setattr("backend.app.index_pdf", fake_index)
+
+    response = TestClient(app).post(
+        "/api/index",
+        files={"file": ("../../my doc.pdf", b"%PDF-1.4 fake", "application/pdf")},
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "source": "my doc.pdf",
+        "pages": 2,
+        "chunks": 3,
+        "tokens": 100,
+    }
+    assert saved["path"].endswith("my doc.pdf")
+    assert (tmp_path / "my doc.pdf").exists()
+
+
+def test_index_rejects_non_pdf():
+    response = TestClient(app).post(
+        "/api/index", files={"file": ("notes.txt", b"hello", "text/plain")}
+    )
+    assert response.status_code == 400
+    assert "pdf" in response.json()["detail"].lower()
