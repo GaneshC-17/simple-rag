@@ -11,8 +11,9 @@ wheels/
 # Secrets
 .env
 
-# Generated data (documents + vector index)
+# Generated data (documents + vector index + local Postgres cluster)
 data/processed/
+data/pgdata/
 
 # Jupyter checkpoints
 .ipynb_checkpoints/

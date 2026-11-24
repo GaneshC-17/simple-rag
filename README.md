@@ -32,6 +32,10 @@ generation:
 4. Run `uv run python -m simple_rag.config` to verify settings.
 
 > The embedding model weights (~2.2 GB) are downloaded on first use and then cached.
+>
+> The vector store uses `embedded-postgres` (PostgreSQL + pgvector bundled in a
+> pip wheel), so no external database setup is needed. Its data lives in
+> `data/pgdata/` and is gitignored.
 
 ### Check freellmapi manually
 
@@ -52,12 +56,24 @@ Start-Process "http://127.0.0.1:31415/v1/docs"
 curl.exe -H "Authorization: Bearer freellmapi-YOUR_KEY" http://127.0.0.1:31415/v1/models
 ```
 
+## Usage
+
+```powershell
+# Index a PDF into pgvector
+uv run python main.py index "data\raw\your-file.pdf"
+
+# Retrieve relevant chunks for a question
+uv run python main.py ask "What is heredity?" --top-k 3
+```
+
+`ask` currently returns retrieved chunks; the LLM answer (via freellmapi) is the next stage.
+
 ## Structure
 
 - `src/simple_rag/ingestion/` — load PDFs and clean extracted text
 - `src/simple_rag/chunking/` — split clean text into token-sized chunks
 - `src/simple_rag/embeddings/` — local `sentence-transformers` model (no API)
-- `src/simple_rag/vectorstore/` — store + search vectors
+- `src/simple_rag/vectorstore/` — PostgreSQL + pgvector store (embedded-postgres)
 - `src/simple_rag/generation/` — freellmapi-backed LLM answers from context
 - `src/simple_rag/prompts/` — prompt templates
 - `src/simple_rag/config.py` — settings from `.env`
@@ -70,5 +86,6 @@ curl.exe -H "Authorization: Bearer freellmapi-YOUR_KEY" http://127.0.0.1:31415/v
 - [x] text cleaning
 - [x] chunking
 - [x] embeddings
-- [ ] vectorstore
+- [x] vectorstore
+- [x] pipeline
 - [ ] generation
