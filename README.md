@@ -6,13 +6,6 @@ An end-to-end **Retrieval-Augmented Generation (RAG)** application: upload a PDF
 
 ![simple-rag demo](docs/images/demo.gif)
 
-| Step | Screenshot |
-|------|-----------|
-| Empty state | ![Empty state](docs/images/01-empty-state.png) |
-| PDF uploaded | ![Upload success](docs/images/02-upload-success.png) |
-| Grounded answer with sources | ![Answer](docs/images/03-answer-with-sources.png) |
-| Source chunk expanded | ![Source](docs/images/04-source-expanded.png) |
-
 A tiny sample PDF is included at `docs/demo/sample-heredity.pdf` for a quick demo. The GIF above was captured from the real running app.
 
 ## Highlights
@@ -22,7 +15,7 @@ A tiny sample PDF is included at `docs/demo/sample-heredity.pdf` for a quick dem
 - **Grounded answers** — grounded-only system prompt, 2,000-token context budget, and an explicit "I don't know" when the documents don't contain the answer.
 - **Full-stack UI** — React + TypeScript + Tailwind chat interface with PDF upload, expandable source chips, and loading/error states.
 - **One-click startup** — `start.bat` starts both servers and opens the browser.
-- **Verified** — 8 passing API tests, strict TypeScript build, CLI and browser demos. Demo GIF and screenshots included.
+- **Verified** — 8 passing API tests, strict TypeScript build, CLI and browser demos. Demo GIF included.
 
 ## Architecture
 
@@ -111,9 +104,8 @@ src/simple_rag/
   config.py               Settings from .env
   pipeline.py             CLI wiring all stages
 tests/test_backend.py     API tests
-docs/images/              Demo GIF and screenshots
+docs/images/              Demo GIF
 docs/demo/                Tiny sample PDF
-docs/superpowers/         Design doc and implementation plan
 start.bat                 One-click launcher
 ```
 
@@ -152,11 +144,6 @@ The tests cover health, grounded answers, source mapping, empty questions, LLM f
 - Reranking and retrieval evaluation (recall@k)
 - OCR for scanned PDFs
 - Source citations with page-level references
-
-## Design documents
-
-- [`docs/superpowers/specs/2026-11-25-rag-frontend-design.md`](docs/superpowers/specs/2026-11-25-rag-frontend-design.md)
-- [`docs/superpowers/plans/2026-11-25-rag-frontend.md`](docs/superpowers/plans/2026-11-25-rag-frontend.md)
 
 ---
 
