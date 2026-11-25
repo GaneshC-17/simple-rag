@@ -1,131 +1,163 @@
 # simple-rag
 
-A small, step-by-step learning project for Retrieval-Augmented Generation (RAG),
-built toward a production agentic RAG system.
+An end-to-end **Retrieval-Augmented Generation (RAG)** application: upload a PDF, ask a question, and get a grounded answer with the source chunks shown beside it. Built step by step as a learning project toward agentic RAG.
 
-## One-time setup
+## Demo
 
-Before the first launch, from the project folder:
+![simple-rag demo](docs/images/demo.gif)
+
+| Step | Screenshot |
+|------|-----------|
+| Empty state | ![Empty state](docs/images/01-empty-state.png) |
+| PDF uploaded | ![Upload success](docs/images/02-upload-success.png) |
+| Grounded answer with sources | ![Answer](docs/images/03-answer-with-sources.png) |
+| Source chunk expanded | ![Source](docs/images/04-source-expanded.png) |
+
+A tiny sample PDF is included at `docs/demo/sample-heredity.pdf` for a quick demo. The GIF above was captured from the real running app.
+
+## Highlights
+
+- **Local-first retrieval** — 1,024-dimensional `BAAI/bge-m3` embeddings run on your machine. No embedding API key, no quota, deterministic output.
+- **Real vector search** — PostgreSQL + pgvector, cosine similarity, top-k results with source filename and chunk index.
+- **Grounded answers** — grounded-only system prompt, 2,000-token context budget, and an explicit "I don't know" when the documents don't contain the answer.
+- **Full-stack UI** — React + TypeScript + Tailwind chat interface with PDF upload, expandable source chips, and loading/error states.
+- **One-click startup** — `start.bat` starts both servers and opens the browser.
+- **Verified** — 8 passing API tests, strict TypeScript build, CLI and browser demos. Demo GIF and screenshots included.
+
+## Architecture
+
+Embeddings and generation deliberately use different tools:
+
+| Stage | Tool | Runs where | Needs API key? |
+|-------|------|-----------|----------------|
+| Embeddings | `sentence-transformers` + `BAAI/bge-m3` | Locally, on this machine | No |
+| Generation | freellmapi → free cloud LLM providers | Local router, cloud inference | Yes (unified freellmapi key) |
+
+- **Embeddings are local.** `BAAI/bge-m3` is MIT-licensed, 1,024-dimensional, supports 8,192-token inputs and 100+ languages. Weights are downloaded once (~2.2 GB) and cached.
+- **Generation uses freellmapi**, a local router exposing one OpenAI-compatible endpoint at `http://127.0.0.1:31415/v1`. Only `LLM_*` settings apply to it.
+- **Why split them:** retrieval quality should not depend on which LLM answers. Changing the chat model never requires rebuilding the vector store; changing the embedding model does, which is why it is pinned in `.env`.
+
+```
+INDEX:  PDF → clean text → token chunks → local vectors → pgvector
+QUERY:  question → query vector → vector search → labeled context → LLM → answer + sources
+```
+
+## Tech stack
+
+| Layer | Technologies |
+|-------|--------------|
+| Frontend | Vite, React, TypeScript (strict), Tailwind CSS |
+| Backend | FastAPI, uvicorn, Pydantic |
+| Retrieval | PostgreSQL + pgvector (embedded via `embedded-postgres`) |
+| Embeddings | `sentence-transformers`, `BAAI/bge-m3`, `tiktoken` |
+| Ingestion | `pdfplumber` |
+| Generation | OpenAI SDK → freellmapi router |
+
+All dependencies are free and open source (MIT / Apache-2.0 / BSD / PostgreSQL License / LGPL for the psycopg driver).
+
+## Quick start
+
+One-time setup, from the project folder:
 
 ```powershell
 uv sync
 Copy-Item .env.example .env
 ```
 
-Open `.env` and replace `freellmapi-your-unified-key` with your real key. Node.js
-22+ must be installed. `start.bat` installs the frontend dependencies
-automatically on its first run.
+Open `.env` and replace `freellmapi-your-unified-key` with your real key. Python 3.14+, `uv`, and Node.js 22+ are required. `start.bat` installs frontend dependencies automatically on first run.
 
-## Web app (recommended)
+## Web app
 
-Double-click **`start.bat`**. It starts the API and the UI in two windows, then
-opens `http://localhost:5173` in your browser. In the app: click **Upload PDF**,
-wait for the "Indexed …" message, then type a question and press Enter. Answers
-show expandable source chips from the PDF.
+Double-click **`start.bat`**. It starts the API and UI in two windows and opens:
 
-- API: `http://127.0.0.1:8000`
 - UI: `http://localhost:5173`
+- API: `http://127.0.0.1:8000`
 
-The CLI commands below still work if you prefer the terminal.
+In the app: **Upload PDF** → wait for "Indexed … chunks" → type a question → press Enter → expand a **source** chip to see the exact chunk behind the answer.
 
-## Architecture
-
-This project deliberately uses **two different approaches** for embeddings and
-generation:
-
-| Stage | Tool | Runs where | Needs API key? |
-|-------|------|-----------|----------------|
-| Embeddings | `sentence-transformers` with `BAAI/bge-m3` | Locally, on this machine | No |
-| Generation | freellmapi → free cloud LLM providers | Local router, cloud inference | Yes (unified freellmapi key) |
-
-- **Embeddings are local.** No embedding API is used. `BAAI/bge-m3` is MIT-licensed,
-  1024-dimensional, supports 8192-token inputs and 100+ languages, and is deterministic.
-  The weights are downloaded once and cached; after that it works offline.
-- **Generation uses freellmapi.** freellmapi is a router running on this laptop. It
-  holds the free-tier provider keys and exposes one OpenAI-compatible endpoint at
-  `http://127.0.0.1:31415/v1` (desktop app port). Only the `LLM_*` settings apply to it.
-- **Why split them:** retrieval quality should not depend on which LLM is answering.
-  Swapping the chat model later never forces a vector-store rebuild — but changing
-  the embedding model does, which is why it is pinned in `.env`.
-
-## Setup
-
-1. Install Python 3.14+ and [uv](https://docs.astral.sh/uv/).
-2. Run `uv sync` to install dependencies.
-3. Copy `.env.example` to `.env`. Add your freellmapi URL + key for generation;
-   leave the embedding values as-is (they are local).
-4. Run `uv run python -m simple_rag.config` to verify settings.
-
-> The embedding model weights (~2.2 GB) are downloaded on first use and then cached.
->
-> The vector store uses `embedded-postgres` (PostgreSQL + pgvector bundled in a
-> pip wheel), so no external database setup is needed. Its data lives in
-> `data/pgdata/` and is gitignored.
-
-### Check freellmapi manually
+## CLI
 
 ```powershell
-# 1. Confirm the desktop app is listening on port 31415
-Get-NetTCPConnection -State Listen | Where-Object LocalPort -eq 31415
-
-# 2. See which process owns it
-Get-Process FreeLLMAPI | Select-Object Id, Path
-
-# 3. Is the API reachable? 200 = yes, 401 = reachable but needs a key
-curl.exe -s -o NUL -w "%{http_code}`n" http://127.0.0.1:31415/v1/docs
-
-# 4. Open the interactive API viewer in your browser
-Start-Process "http://127.0.0.1:31415/v1/docs"
-
-# 5. List available models (paste your real unified key)
-curl.exe -H "Authorization: Bearer freellmapi-YOUR_KEY" http://127.0.0.1:31415/v1/models
-```
-
-## Usage
-
-```powershell
-# Index a PDF into pgvector
 uv run python main.py index "data\raw\your-file.pdf"
-
-# Retrieve relevant chunks for a question
 uv run python main.py ask "What is heredity?" --top-k 3
-
-# Ask questions interactively (type 'quit' to exit)
 uv run python main.py chat --top-k 3
-
-# Build the context block that will be sent to the LLM
-uv run python main.py context "What is heredity?" --top-k 3 --max-tokens 2000
-
-# Full RAG loop: retrieve -> context -> LLM answer via freellmapi
+uv run python main.py context "What is heredity?" --top-k 3
 uv run python main.py answer "What is heredity?" --top-k 3
 ```
 
-`ask` / `chat` return retrieved chunks, `context` assembles them into a labeled
-block, and `answer` completes the loop by asking the LLM through freellmapi.
+`ask` returns chunks, `context` assembles the LLM context, `answer` runs the full RAG loop.
 
-## Structure
+## API
 
-- `src/simple_rag/ingestion/` — load PDFs and clean extracted text
-- `src/simple_rag/chunking/` — split clean text into token-sized chunks
-- `src/simple_rag/embeddings/` — local `sentence-transformers` model (no API)
-- `src/simple_rag/vectorstore/` — PostgreSQL + pgvector store (embedded-postgres)
-- `src/simple_rag/query/` — user question input + question-to-vector conversion
-- `src/simple_rag/generation/` — freellmapi-backed LLM answers from context
-- `src/simple_rag/prompts/templates.py` — system + user prompt templates
-- `src/simple_rag/prompts/` — prompt templates and LLM context building
-- `src/simple_rag/config.py` — settings from `.env`
-- `src/simple_rag/pipeline.py` — ties stages together
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| `GET` | `/api/health` | Backend status and indexed chunk count |
+| `POST` | `/api/index` | Upload a PDF (multipart `file`) and index it |
+| `POST` | `/api/ask` | `{question, top_k, max_tokens}` → `{answer, sources}` |
 
-## Progress
+## Project layout
 
-- [x] config
-- [x] ingestion
-- [x] text cleaning
-- [x] chunking
-- [x] embeddings
-- [x] vectorstore
-- [x] pipeline
-- [x] user question
-- [x] question embedding
-- [x] build context
-- [x] generation
+```
+backend/                  FastAPI application
+frontend/src/             React UI (components, api client, types)
+src/simple_rag/
+  ingestion/              PDF loading and text cleaning
+  chunking/               Token-based splitting
+  embeddings/             Local bge-m3 embedder
+  vectorstore/            pgvector store
+  query/                  User question input and question embedding
+  prompts/                Templates and context building
+  generation/             LLM answer via freellmapi
+  config.py               Settings from .env
+  pipeline.py             CLI wiring all stages
+tests/test_backend.py     API tests
+docs/images/              Demo GIF and screenshots
+docs/demo/                Tiny sample PDF
+docs/superpowers/         Design doc and implementation plan
+start.bat                 One-click launcher
+```
+
+## Tests
+
+```powershell
+uv run pytest tests/test_backend.py -q     # 8 tests
+cd frontend && npm run build && npm run lint
+```
+
+The tests cover health, grounded answers, source mapping, empty questions, LLM failures, empty indexes, non-PDF uploads, and sanitized filenames.
+
+## Verified results
+
+| Metric | Observed |
+|--------|----------|
+| Sample document | 6 pages, 3,823 tokens → 16 chunks |
+| Embedding dimension | 1,024 |
+| Top retrieved chunk similarity | 0.5656 (correct heredity section) |
+| API tests passing | 8 |
+| API endpoints | 3 |
+| Context budget | 2,000 tokens |
+
+## Limitations
+
+- No chat history or conversation memory — "New chat" clears the thread.
+- No token streaming; answers appear when complete.
+- Image-only (scanned) PDFs require OCR, which is not implemented.
+- Some source PDFs contain garbled glyphs from their original encoding; text is passed through unchanged.
+- Runs locally only; no authentication or deployment configuration.
+
+## Roadmap
+
+- Conversation memory and multi-thread history
+- Streaming answers in the UI
+- Reranking and retrieval evaluation (recall@k)
+- OCR for scanned PDFs
+- Source citations with page-level references
+
+## Design documents
+
+- [`docs/superpowers/specs/2026-11-25-rag-frontend-design.md`](docs/superpowers/specs/2026-11-25-rag-frontend-design.md)
+- [`docs/superpowers/plans/2026-11-25-rag-frontend.md`](docs/superpowers/plans/2026-11-25-rag-frontend.md)
+
+---
+
+Built with free and open-source tools.
